@@ -1,19 +1,23 @@
 import json
 import math
 import time
+import os
+import tkinter as tk
+import tkinter.filedialog
 
 
 # 元データに\がある場合は\\にしないとエラーになる
+# py3.9以上が必須
 
 def main():
     time_sta = time.time()
     simai_list = []
-    file = "test_tf.json"
+    file = input("出力されたjsonのfile名を入力してください。:")
     f = open(file, "r")
     json_dict = json.load(f)
     f.close()
 
-    # 1ノーツずつ検証して二次元リストに格納
+    # 1ノーツずつsimai形式にして格納
     # simai_list=((note_simaiedit,measureIndex,mposition.num,mposition.denom),)
     for note in (json_dict['timeline']['notes']):
         # ノーツが始点でなければスキップ
@@ -22,9 +26,9 @@ def main():
 
         # ノーツ種類毎に判定、リストに追加
         if note['type'] == 'TAP':
-            noteSimai = str(note['horizontalPosition']['numerator'] + 1) + 'x'
-            if not exCheck(note):
-                noteSimai = noteSimai[:-1]
+            noteSimai = str(note['horizontalPosition']['numerator'] + 1)
+            if exCheck(note):
+                noteSimai = noteSimai + 'x'
             simai_list.append(listAppend(noteSimai, note))
 
 
@@ -54,107 +58,89 @@ def main():
             if not endNote:
                 noteSimai = 'Ch' + hnb
             else:
-                # holdが同じレーンに設置されているかチェック
-                if endNote[1] != note['horizontalPosition']['numerator']:
-                    print("hold error", note['measureIndex'], note['measurePosition']['numerator'],
-                          note['measurePosition']['denominator'])
-
-                noteLen, denom = noteLength(note['measureIndex'], note['measurePosition']['numerator'],
-                                            note['measurePosition']['denominator'], endNote[2], endNote[3],
-                                            endNote[4])
+                noteLen, denom = noteLength(note, endNote)
                 noteSimai = 'Ch' + hnb + '[' + str(denom) + ':' + str(noteLen) + ']'
+            holdErrorChech(note, endNote)
             simai_list.append(listAppend(noteSimai, note))
 
 
         elif note['type'] == 'HOLD':
             endNote, tmp = endSearch(note['guid'], json_dict['timeline'])
             endNote = endNote[0]
+            ex = ''
+            if exCheck(note):
+                ex = 'x'
             if not endNote:
-                noteSimai = str(note['horizontalPosition']['numerator'] + 1) + 'h'
+                noteSimai = str(note['horizontalPosition']['numerator'] + 1) + 'h' + ex
             else:
-                if endNote[1] != note['horizontalPosition']['numerator']:
-                    print("hold error", note['measureIndex'], note['measurePosition']['numerator'],
-                          note['measurePosition']['denominator'])
-                noteLen, denom = noteLength(note['measureIndex'], note['measurePosition']['numerator'],
-                                            note['measurePosition']['denominator'], endNote[2], endNote[3],
-                                            endNote[4])
-                noteSimai = str(note['horizontalPosition']['numerator'] + 1) + 'h[' + str(denom) + ':' + str(
+                noteLen, denom = noteLength(note, endNote)
+                noteSimai = str(note['horizontalPosition']['numerator'] + 1) + 'h' + ex + '[' + str(
+                    denom) + ':' + str(
                     noteLen) + ']'
+            holdErrorChech(note, endNote)
             simai_list.append(listAppend(noteSimai, note))
 
 
-        elif note['type'] == 'BREAK':
-            endNotes, tmp = endSearch(note['guid'], json_dict['timeline'])
-            if not endNotes:
-                simai_list.append(listAppend(str(note['horizontalPosition']['numerator'] + 1) + 'b', note))
-            elif mid:
-                midNotes = endNotes
-                noteSimai = str(note['horizontalPosition']['numerator'] + 1)
-                for midNote in midNotes:
-                    endNote, tmp = endSearch(midNote[0], json_dict['timeline'])
-                    endNote = endNote[0]
-                    noteLen, denom = noteLength(note['measureIndex'], note['measurePosition']['numerator'],
-                                                note['measurePosition']['denominator'], endNote[2], endNote[3],
-                                                endNote[4])
-                    noteSimai = noteSimai + 'V' + str(midNote[1] + 1) + str(
-                        endNote[1] + 1) + '[' + str(denom) + ':' + str(noteLen) + ']*'
-                    simai_list.append([noteSimai, note['measureIndex'],
-                                       note['measurePosition']['numerator'], note['measurePosition']['denominator'],
-                                       note['measureIndex'] +
-                                       note['measurePosition']['numerator'] / note['measurePosition']['denominator']])
+        else:  # Slideとくっつく可能性のあるもの
+            noteSimai = str(note['horizontalPosition']['numerator'] + 1)
+            # BREAKの判定
+            if note['type'] == 'BREAK':
+                noteSimai = noteSimai + 'b'
             else:
-                noteSimai = str(note['horizontalPosition']['numerator'] + 1) + 'b'
-                for endNote in endNotes:
-                    noteLen, denom = noteLength(note['measureIndex'], note['measurePosition']['numerator'],
-                                                note['measurePosition']['denominator'], endNote[2], endNote[3],
-                                                endNote[4])
-                    noteSimai = noteSimai + str(endNote[0]) + str(endNote[1] + 1) + '[' + str(denom) + ':' + str(
-                        noteLen) + ']*'
-                simai_list.append(listAppend(noteSimai[:-1], note))
-
-
-        else:
+                if exCheck(note):
+                    noteSimai = noteSimai + 'x'
+            # middleとendがあるか検証
+            # 無ければbreak単体
             endNotes, mid = endSearch(note['guid'], json_dict['timeline'])
             if mid:
                 midNotes = endNotes
-                noteSimai = str(note['horizontalPosition']['numerator'] + 1)
                 for midNote in midNotes:
                     endNote, tmp = endSearch(midNote[0], json_dict['timeline'])
                     endNote = endNote[0]
-                    noteLen, denom = noteLength(note['measureIndex'], note['measurePosition']['numerator'],
-                                                note['measurePosition']['denominator'], endNote[2], endNote[3],
-                                                endNote[4])
+                    noteLen, denom = noteLength(note, endNote)
                     noteSimai = noteSimai + 'V' + str(midNote[1] + 1) + str(
                         endNote[1] + 1) + '[' + str(denom) + ':' + str(noteLen) + ']*'
-                    simai_list.append([noteSimai, note['measureIndex'],
-                                       note['measurePosition']['numerator'], note['measurePosition']['denominator'],
-                                       note['measureIndex'] +
-                                       note['measurePosition']['numerator'] / note['measurePosition']['denominator']])
-            else:
-                noteSimai = str(note['horizontalPosition']['numerator'] + 1)
+            elif endNotes:
                 for endNote in endNotes:
-                    noteLen, denom = noteLength(note['measureIndex'], note['measurePosition']['numerator'],
-                                                note['measurePosition']['denominator'], endNote[2], endNote[3],
-                                                endNote[4])
+                    noteLen, denom = noteLength(note, endNote)
                     noteSimai = noteSimai + str(endNote[0]) + str(endNote[1] + 1) + '[' + str(denom) + ':' + str(
                         noteLen) + ']*'
-                    simai_list.append([noteSimai[:-1], note['measureIndex'],
-                                       note['measurePosition']['numerator'], note['measurePosition']['denominator'],
-                                       note['measureIndex'] + note['measurePosition']['numerator'] /
-                                       note['measurePosition']['denominator']])
-
-    for note in simai_list:
-        note[4] = float('{:.4f}'.format(note[4]))
+            else:  # break
+                noteSimai = noteSimai + 'x'  # x=dummy
+            simai_list.append(listAppend(noteSimai[:-1], note))
+    simai_list = sorted(simai_list, key=lambda x: x[4])
 
     # BPM情報を格納
     bpmList = []
-    for note in (json_dict['timeline']['otherObjects']):
-        bpmList.append([note['value'], note['measureIndex'],
-                        note['measurePosition']['numerator'], note['measurePosition']['denominator'],
-                        note['measureIndex'] + note['measurePosition']['numerator'] / note['measurePosition'][
-                            'denominator']])
-    simai_list = sorted(simai_list, key=lambda x: x[4])
-    print(simai_list)
+    for bpm in (json_dict['timeline']['otherObjects']):
+        if bpm['measurePosition']['numerator'] == 0:
+            bpmSimai = '(' + str(bpm['value']) + ')'
+            bpmList.append(listAppend(bpmSimai, bpm))
+        else:
+            bpmSimai = '(' + str(bpm['value']) + ')'
+            bpm = listAppend(bpmSimai, bpm)
+            i = 0
+            for note in simai_list:
+                if note[4] >= bpm[4]:
+                    simai_list.insert(i, bpm)
+                    break
+                else:
+                    i += 1
+    bpmList.append(['', 9999, 0, 1, 9999])
+
+    # EACH判定
+    i = 0
+    for note in simai_list:
+        if i == len(simai_list) - 1:
+            break
+        if simai_list[i][4] == simai_list[i + 1][4]:
+            if simai_list[i][0][-1] == ')':
+                simai_list[i][0] = simai_list[i][0] + simai_list[i + 1][0]
+            else:
+                simai_list[i][0] = simai_list[i][0] + '/' + simai_list[i + 1][0]
+            simai_list.pop(i + 1)
+        else:
+            i += 1
 
     # 1小節毎に分母の公倍数を求める
     i = 1
@@ -166,11 +152,13 @@ def main():
             denomList.append(math.lcm(*denom))
             denom = []
         denom.append(note[3])
+    denomList.append(math.lcm(*denom))
 
-    for note in simai_list:
-        pass
+    print(simai_list)
+    print(bpmList)
 
-    txt = ('test.txt')
+    # txtに出力
+    txt = ('maidata.txt')
     f = open(txt, 'w')
     # メタデータ挿入
     if json_dict['difficulty'] == 0:
@@ -179,14 +167,31 @@ def main():
         lev = json_dict['difficulty']
     f.write(
         f"&title={flashReplace(json_dict['name'])}\n&artist={flashReplace(json_dict['creator'])}\n&des=\n"
-        f"&first={json_dict['startTime']}\n\n&lv_{lev}={json_dict['level']}\n&inote_{lev}=\n")
+        f"&first={json_dict['startTime']}\n\n&lv_{lev}={json_dict['level']}\n&inote_{lev}=\n{bpmList[0][0]}")
+    bpmList.pop(0)
+    noteNum = 0
+    print(denomList)
+    for index in range(len(denomList)):
+        if index == bpmList[0][1]:
+            f.write(f"\n{bpmList[0][0]}")
+            bpmList.pop(0)
+        simaiDenom = '{' + str(denomList[index]) + '}'
+        f.write(f'\n{simaiDenom}')
+        for beat in range(denomList[index]):
+            if index == simai_list[noteNum][1] and beat == simai_list[noteNum][2] * (
+                    denomList[index] / simai_list[noteNum][3]):
+                f.write(simai_list[noteNum][0] + ',')
+                noteNum += 1
+            else:
+                f.write(',')
+    f.write('\n(1){1}\n,\nE')
     f.close()
     time_end = time.time()
     print((time_end - time_sta) * 1000, 'ms')
 
 
 def exCheck(note):
-    ex = note['customProps']['EX?']
+    ex = note['customProps']['EX']
     if ex == "ex":
         return True
     else:
@@ -212,7 +217,7 @@ def endSearch(start_guid, dic):
                 if noteline['tail'] == note['guid']:
                     if note['customProps']['type'] == 'middle':  # V専用の分岐
                         midList.append([note['guid'], note['horizontalPosition']['numerator']])
-
+                        continue
                     if note['type'] != 'SLIDE':
                         noteList.append([note['type'], note['horizontalPosition']['numerator'], note['measureIndex'],
                                          note['measurePosition']['numerator'],
@@ -224,29 +229,41 @@ def endSearch(start_guid, dic):
                                          note['measurePosition']['denominator']])
     if midList:
         return midList, True
-    elif noteList:
-        return noteList, False
     else:
-        return False, False
+        return noteList, False
 
 
 def listAppend(noteSimai, note):
-    return [noteSimai, note['measureIndex'],
-            note['measurePosition']['numerator'], note['measurePosition']['denominator'],
-            note['measureIndex'] + note['measurePosition']['numerator'] / note['measurePosition'][
-                'denominator']]
+    if note['measurePosition']['numerator'] == 0:
+        num = 0
+        denom = 1
+    else:
+        gcd = math.gcd(note['measurePosition']['numerator'], note['measurePosition']['denominator'])
+        num = int(note['measurePosition']['numerator'] / gcd)
+        denom = int(note['measurePosition']['denominator'] / gcd)
+    point = note['measureIndex'] + note['measurePosition']['numerator'] / note['measurePosition']['denominator']
+    point = float('{:.4f}'.format(point))
+    return [noteSimai, note['measureIndex'], num, denom, point]
 
 
-def noteLength(startIndex, startNum, startDenom, endIndex, endNum, endDenom):
-    rootDenom = math.lcm(startDenom, endDenom)
-    noteLen = (endIndex - startIndex) * rootDenom + endNum * (rootDenom / endDenom) - startNum * (
-            rootDenom / startDenom)
-    return int(noteLen), rootDenom
+def noteLength(note, endNote):
+    rootDenom = math.lcm(note['measurePosition']['denominator'], endNote[4])
+    noteLen = (endNote[2] - note['measureIndex']) * rootDenom + endNote[3] * (rootDenom / endNote[4]) - \
+              note['measurePosition']['numerator'] * (rootDenom / note['measurePosition']['denominator'])
+    rootDenom = int(rootDenom / math.gcd(rootDenom, int(noteLen)))
+    noteLen = int(noteLen / math.gcd(rootDenom, int(noteLen)))
+    return noteLen, rootDenom
 
 
 def flashReplace(str1):
     str1 = str1.replace(r'\\', '\￥').replace('&', '\＆').replace('+', '\＋').replace('%', '\％')
     return str1
+
+
+def holdErrorChech(note, endNote):
+    if endNote[1] != note['horizontalPosition']['numerator']:
+        print("hold error:始点と終点の位置がズレています。\n", note['measureIndex'], note['measurePosition']['numerator'],
+              note['measurePosition']['denominator'])
 
 
 main()
