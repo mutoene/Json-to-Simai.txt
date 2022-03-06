@@ -1,9 +1,6 @@
 import json
 import math
 import time
-import os
-import tkinter as tk
-import tkinter.filedialog
 
 
 # 元データに\がある場合は\\にしないとエラーになる
@@ -75,8 +72,7 @@ def main():
             else:
                 noteLen, denom = noteLength(note, endNote)
                 noteSimai = str(note['horizontalPosition']['numerator'] + 1) + 'h' + ex + '[' + str(
-                    denom) + ':' + str(
-                    noteLen) + ']'
+                    denom) + ':' + str(noteLen) + ']'
             holdErrorChech(note, endNote)
             simai_list.append(listAppend(noteSimai, note))
 
@@ -130,17 +126,20 @@ def main():
 
     # EACH判定
     i = 0
-    for note in simai_list:
-        if i == len(simai_list) - 1:
+    while 1:
+        if i == len(simai_list)-1:
             break
-        if simai_list[i][4] == simai_list[i + 1][4]:
-            if simai_list[i][0][-1] == ')':
-                simai_list[i][0] = simai_list[i][0] + simai_list[i + 1][0]
+        while 1:
+            if simai_list[i][4] == simai_list[i + 1][4]:
+                if simai_list[i][0][-1] == ')':
+                    simai_list[i][0] = simai_list[i][0] + simai_list[i + 1][0]
+                else:
+                    simai_list[i][0] = simai_list[i][0] + '/' + simai_list[i + 1][0]
+                simai_list.pop(i + 1)
             else:
-                simai_list[i][0] = simai_list[i][0] + '/' + simai_list[i + 1][0]
-            simai_list.pop(i + 1)
-        else:
-            i += 1
+                break
+        i+=1
+
 
     # 1小節毎に分母の公倍数を求める
     i = 1
@@ -178,6 +177,7 @@ def main():
         simaiDenom = '{' + str(denomList[index]) + '}'
         f.write(f'\n{simaiDenom}')
         for beat in range(denomList[index]):
+            print(simai_list[noteNum][0])
             if index == simai_list[noteNum][1] and beat == simai_list[noteNum][2] * (
                     denomList[index] / simai_list[noteNum][3]):
                 f.write(simai_list[noteNum][0] + ',')
@@ -250,9 +250,9 @@ def noteLength(note, endNote):
     rootDenom = math.lcm(note['measurePosition']['denominator'], endNote[4])
     noteLen = (endNote[2] - note['measureIndex']) * rootDenom + endNote[3] * (rootDenom / endNote[4]) - \
               note['measurePosition']['numerator'] * (rootDenom / note['measurePosition']['denominator'])
-    rootDenom = int(rootDenom / math.gcd(rootDenom, int(noteLen)))
-    noteLen = int(noteLen / math.gcd(rootDenom, int(noteLen)))
-    return noteLen, rootDenom
+    returnRootDenom = int(rootDenom / math.gcd(rootDenom, int(noteLen)))
+    returnNoteLen = int(noteLen / math.gcd(rootDenom, int(noteLen)))
+    return returnNoteLen, returnRootDenom
 
 
 def flashReplace(str1):
