@@ -7,9 +7,9 @@ import time
 # py3.9以上が必須
 
 def main():
-    time_sta = time.time()
     simai_list = []
     file = input("出力されたjsonのfile名を入力してください。:")
+    time_sta = time.time()
     f = open(file, "r")
     json_dict = json.load(f)
     f.close()
@@ -55,7 +55,7 @@ def main():
             if not endNote:
                 noteSimai = 'Ch' + hnb
             else:
-                noteLen, denom = noteLength(note, endNote)
+                noteLen, denom = noteLength(note, endNote, True)
                 noteSimai = 'Ch' + hnb + '[' + str(denom) + ':' + str(noteLen) + ']'
             holdErrorChech(note, endNote)
             simai_list.append(listAppend(noteSimai, note))
@@ -70,7 +70,7 @@ def main():
             if not endNote:
                 noteSimai = str(note['horizontalPosition']['numerator'] + 1) + 'h' + ex
             else:
-                noteLen, denom = noteLength(note, endNote)
+                noteLen, denom = noteLength(note, endNote, True)
                 noteSimai = str(note['horizontalPosition']['numerator'] + 1) + 'h' + ex + '[' + str(
                     denom) + ':' + str(noteLen) + ']'
             holdErrorChech(note, endNote)
@@ -177,7 +177,6 @@ def main():
         simaiDenom = '{' + str(denomList[index]) + '}'
         f.write(f'\n{simaiDenom}')
         for beat in range(denomList[index]):
-            print(simai_list[noteNum][0])
             if index == simai_list[noteNum][1] and beat == simai_list[noteNum][2] * (
                     denomList[index] / simai_list[noteNum][3]):
                 f.write(simai_list[noteNum][0] + ',')
@@ -246,14 +245,16 @@ def listAppend(noteSimai, note):
     return [noteSimai, note['measureIndex'], num, denom, point]
 
 
-def noteLength(note, endNote):
+def noteLength(note, endNote, *hold):
     rootDenom = math.lcm(note['measurePosition']['denominator'], endNote[4])
     noteLen = (endNote[2] - note['measureIndex']) * rootDenom + endNote[3] * (rootDenom / endNote[4]) - \
-              note['measurePosition']['numerator'] * (rootDenom / note['measurePosition']['denominator'])
+              note['measurePosition']['numerator'] * (rootDenom / note['measurePosition']['denominator']) - rootDenom/4
+    if hold:
+        noteLen += rootDenom/4
     returnRootDenom = int(rootDenom / math.gcd(rootDenom, int(noteLen)))
     returnNoteLen = int(noteLen / math.gcd(rootDenom, int(noteLen)))
-    return returnNoteLen, returnRootDenom
 
+    return returnNoteLen, returnRootDenom
 
 def flashReplace(str1):
     str1 = str1.replace(r'\\', '\￥').replace('&', '\＆').replace('+', '\＋').replace('%', '\％')
