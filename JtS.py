@@ -56,9 +56,9 @@ def main():
         elif note['type'] == 'TOUCH':
             touchPointNum = note['horizontalPosition']['numerator']
             if touchPointNum % 2 == 0:
-                noteSimai = 'B' + str(int(touchPointNum / 2 + 1))
+                noteSimai = 'B' + str(notePosition(int(touchPointNum / 2 + 1), left, rotate))
             else:
-                noteSimai = 'E' + str(int(touchPointNum / 2 + 1))
+                noteSimai = 'E' + str(notePosition(int(touchPointNum / 2 + 1), left, rotate))
             simai_list.append(listAppend(noteSimai, note))
 
 
