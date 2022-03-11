@@ -35,7 +35,7 @@ def main():
     # 1ノーツずつsimai形式にして格納
     # simai_list=((note_simaiedit,measureIndex,mposition.num,mposition.denom),)
     rotate = False
-    left = 1
+    left = 0
     for note in (json_dict['timeline']['notes']):
         tmpdata = listAppend(note['horizontalPosition']['numerator'], note)
         if laneList[0][4] <= tmpdata[4]:
@@ -187,7 +187,7 @@ def main():
     print(bpmList)
 
     # txtに出力
-    txt = ('maidata.txt')
+    txt = ('maidatatest.txt')
     f = open(txt, 'w')
     # メタデータ挿入
     if json_dict['difficulty'] == 0:
