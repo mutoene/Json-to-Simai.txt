@@ -7,7 +7,7 @@ import time
 # py3.9以上が必須
 
 def main():
-    simai_list = []
+    simaiList = []
     file = input("出力されたjsonのfile名を入力してください。:")
     time_sta = time.time()
     f = open(file, "r")
@@ -26,7 +26,7 @@ def main():
             noteSimai = str(note['horizontalPosition']['numerator'] + 1)
             if exCheck(note):
                 noteSimai = noteSimai + 'x'
-            simai_list.append(listAppend(noteSimai, note))
+            simaiList.append(listAppend(noteSimai, note))
 
 
         elif note['type'] == 'TOUCH':
@@ -35,7 +35,7 @@ def main():
                 noteSimai = 'B' + str(int(touchPointNum / 2 + 1))
             else:
                 noteSimai = 'E' + str(int(touchPointNum / 2 + 1))
-            simai_list.append(listAppend(noteSimai, note))
+            simaiList.append(listAppend(noteSimai, note))
 
 
         elif note['type'] == 'TOUCH.C':
@@ -43,7 +43,7 @@ def main():
                 noteSimai = 'Cf'
             else:
                 noteSimai = 'C'
-            simai_list.append(listAppend(noteSimai, note))
+            simaiList.append(listAppend(noteSimai, note))
 
 
         elif note['type'] == 'TOUCHHOLD':
@@ -58,7 +58,7 @@ def main():
                 noteLen, denom = noteLength(note, endNote, True)
                 noteSimai = 'Ch' + hnb + '[' + str(denom) + ':' + str(noteLen) + ']'
             holdErrorChech(note, endNote)
-            simai_list.append(listAppend(noteSimai, note))
+            simaiList.append(listAppend(noteSimai, note))
 
 
         elif note['type'] == 'HOLD':
@@ -74,7 +74,7 @@ def main():
                 noteSimai = str(note['horizontalPosition']['numerator'] + 1) + 'h' + ex + '[' + str(
                     denom) + ':' + str(noteLen) + ']'
             holdErrorChech(note, endNote)
-            simai_list.append(listAppend(noteSimai, note))
+            simaiList.append(listAppend(noteSimai, note))
 
 
         else:  # Slideとくっつく可能性のあるもの
@@ -103,8 +103,8 @@ def main():
                         noteLen) + ']*'
             else:  # break
                 noteSimai = noteSimai + 'x'  # x=dummy
-            simai_list.append(listAppend(noteSimai[:-1], note))
-    simai_list = sorted(simai_list, key=lambda x: x[4])
+            simaiList.append(listAppend(noteSimai[:-1], note))
+    simaiList = sorted(simaiList, key=lambda x: x[4])
 
     # BPM情報を格納
     bpmList = []
@@ -116,9 +116,9 @@ def main():
             bpmSimai = '(' + str(bpm['value']) + ')'
             bpm = listAppend(bpmSimai, bpm)
             i = 0
-            for note in simai_list:
+            for note in simaiList:
                 if note[4] >= bpm[4]:
-                    simai_list.insert(i, bpm)
+                    simaiList.insert(i, bpm)
                     break
                 else:
                     i += 1
@@ -127,33 +127,37 @@ def main():
     # EACH判定
     i = 0
     while 1:
-        if i == len(simai_list)-1:
+        if i == len(simaiList) - 1:
             break
         while 1:
-            if simai_list[i][4] == simai_list[i + 1][4]:
-                if simai_list[i][0][-1] == ')':
-                    simai_list[i][0] = simai_list[i][0] + simai_list[i + 1][0]
+            if simaiList[i][4] == simaiList[i + 1][4]:
+                if simaiList[i][0][-1] == ')':
+                    simaiList[i][0] = simaiList[i][0] + simaiList[i + 1][0]
                 else:
-                    simai_list[i][0] = simai_list[i][0] + '/' + simai_list[i + 1][0]
-                simai_list.pop(i + 1)
+                    simaiList[i][0] = simaiList[i][0] + '/' + simaiList[i + 1][0]
+                simaiList.pop(i + 1)
             else:
                 break
-        i+=1
-
+        i += 1
 
     # 1小節毎に分母の公倍数を求める
-    i = 1
+    i = 0
+    frame = 1
     denom = []
     denomList = []
-    for note in simai_list:
-        if note[4] >= i:
-            i += 1
+    while 1:
+        if i == len(simaiList):
+            break
+        if simaiList[i][4] >= frame:
+            frame += 1
             denomList.append(math.lcm(*denom))
             denom = []
-        denom.append(note[3])
+        else:
+            denom.append(simaiList[i][3])
+            i += 1
     denomList.append(math.lcm(*denom))
-
-    print(simai_list)
+    print(denomList)
+    print(simaiList)
     print(bpmList)
 
     # txtに出力
@@ -169,6 +173,7 @@ def main():
         f"&first={json_dict['startTime']}\n\n&lv_{lev}={json_dict['level']}\n&inote_{lev}=\n{bpmList[0][0]}")
     bpmList.pop(0)
     noteNum = 0
+    simaiListLength = len(simaiList)
     print(denomList)
     for index in range(len(denomList)):
         if index == bpmList[0][1]:
@@ -177,10 +182,11 @@ def main():
         simaiDenom = '{' + str(denomList[index]) + '}'
         f.write(f'\n{simaiDenom}')
         for beat in range(denomList[index]):
-            if index == simai_list[noteNum][1] and beat == simai_list[noteNum][2] * (
-                    denomList[index] / simai_list[noteNum][3]):
-                f.write(simai_list[noteNum][0] + ',')
-                noteNum += 1
+            if index == simaiList[noteNum][1] and beat == simaiList[noteNum][2] * (
+                    denomList[index] / simaiList[noteNum][3]):
+                f.write(simaiList[noteNum][0] + ',')
+                if noteNum < simaiListLength - 1:
+                    noteNum += 1
             else:
                 f.write(',')
     f.write('\n(1){1}\n,\nE')
@@ -248,13 +254,15 @@ def listAppend(noteSimai, note):
 def noteLength(note, endNote, *hold):
     rootDenom = math.lcm(note['measurePosition']['denominator'], endNote[4])
     noteLen = (endNote[2] - note['measureIndex']) * rootDenom + endNote[3] * (rootDenom / endNote[4]) - \
-              note['measurePosition']['numerator'] * (rootDenom / note['measurePosition']['denominator']) - rootDenom/4
+              note['measurePosition']['numerator'] * (
+                      rootDenom / note['measurePosition']['denominator']) - rootDenom / 4
     if hold:
-        noteLen += rootDenom/4
+        noteLen += rootDenom / 4
     returnRootDenom = int(rootDenom / math.gcd(rootDenom, int(noteLen)))
     returnNoteLen = int(noteLen / math.gcd(rootDenom, int(noteLen)))
 
     return returnNoteLen, returnRootDenom
+
 
 def flashReplace(str1):
     str1 = str1.replace(r'\\', '\￥').replace('&', '\＆').replace('+', '\＋').replace('%', '\％')
