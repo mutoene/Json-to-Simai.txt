@@ -34,11 +34,12 @@ def main():
 
     # 1ノーツずつsimai形式にして格納
     # simai_list=((note_simaiedit,measureIndex,mposition.num,mposition.denom),)
-    rotate = False
+    rotate = True  # True==1<8
     left = 0
     for note in (json_dict['timeline']['notes']):
         tmpdata = listAppend(note['horizontalPosition']['numerator'], note)
         if laneList[0][4] <= tmpdata[4]:
+            print(laneList[0])
             rotate = laneList[0][5]
             left = laneList[0][0]
             laneList.pop(0)
