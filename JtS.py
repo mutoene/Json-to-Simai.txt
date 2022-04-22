@@ -12,7 +12,7 @@ def main():
     simaiList = []
     file = input("出力されたjsonのfile名を入力してください。:")
     time_sta = time.time()
-    f = open(file, "r")
+    f = open(file, "r",encoding="utf-8")
     json_dict = json.load(f)
     f.close()
 
@@ -188,7 +188,7 @@ def main():
     print(bpmList)
 
     # txtに出力
-    txt = ('maidatatest.txt')
+    txt = ('maidata.txt')
     f = open(txt, 'w')
     # メタデータ挿入
     if json_dict['difficulty'] == 0:
